@@ -1,0 +1,10 @@
+bibentry(
+  bibtype = "Manual",
+  title = "MEWOC: Modified Escalation with Overdose Control for Single-Agent Phase I Trials",
+  author = c(person("Shaowli", "Kabir"),
+             person("Xuyan", "Fan"),
+             person("Mourad", "Tighiouart")),
+  year = "2026",
+  note = paste("R package version", meta$Version),
+  url = "https://cshsbiostats.github.io/MEWOC_Shiny_App/"
+)

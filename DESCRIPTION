@@ -1,0 +1,40 @@
+Package: MEWOC
+Title: Modified Escalation with Overdose Control for Single-Agent Phase
+        I Trials
+Version: 0.1.0
+Authors@R: c(
+    person("Shaowli", "Kabir", email = "Shaowli.kabir@csmc.edu",
+           role = c("aut", "cre"),
+           comment = c(affiliation = "Department of Computational Biomedicine, Biostatistics Shared Resource, Cedars-Sinai Health Sciences University")),
+    person("Xuyan", "Fan", role = "aut",
+           comment = c(affiliation = "University of California, Los Angeles")),
+    person("Mourad", "Tighiouart", role = "aut",
+           comment = c(affiliation = "Department of Computational Biomedicine, Biostatistics Shared Resource, Cedars-Sinai Health Sciences University")),
+    person("Biostatistics Shared Resource Cedars-Sinai Health Sciences University", role = "cph")
+    )
+Description: Bayesian dose finding for single-agent phase I trials with
+    escalation with overdose control (EWOC; Babb, Rogatko and Zacks, 1998),
+    using the reparameterized model in which clinicians give prior
+    probabilities that the maximum tolerated dose lies below the minimum or
+    above the maximum trial dose (Tighiouart and Rogatko, 2010
+    <doi:10.1214/10-STS333>). Provides prior calibration, simulation of
+    operating characteristics for discrete or continuous doses with
+    toxicity-dependent feasibility bounds (Wheeler, Sweeting and Mander, 2017
+    <doi:10.1002/sim.7280>) and safety and efficiency stopping rules, Trial
+    Conduct workbooks with cohort-by-cohort dose recommendations, and an
+    interactive 'shiny' application. Posterior computation uses 'JAGS'.
+License: GPL-3
+Copyright: 2026 Biostatistics Shared Resource Cedars-Sinai Health Sciences University
+URL: https://cshsbiostats.github.io/MEWOC_Shiny_App/
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+SystemRequirements: JAGS (>= 4.0.0)
+Depends: R (>= 4.1.0)
+Imports: shiny, dplyr, tidyr, ggplot2, ggtext, rjags, openxlsx,
+        jsonlite, base64enc, htmltools, minqa, scales, stats, utils,
+        graphics, grDevices, grid, parallel
+Suggests: testthat (>= 3.0.0), knitr, rmarkdown, officer, flextable,
+        coda, future, promises, readxl
+VignetteBuilder: knitr
+Config/testthat/edition: 3

@@ -1,0 +1,70 @@
+test_that("packaged Shiny app exists", {
+  app_dir <- system.file("shiny", "mewoc", package = "MEWOC")
+  expect_true(nzchar(app_dir))
+  expect_true(file.exists(file.path(app_dir, "app.R")))
+  expect_true(file.exists(file.path(app_dir, "Stoppingrule_SK_single_agent.R")))
+})
+
+test_that("app uses seed 988, has no Notes boxes and no flexible dose range inputs", {
+  app_file <- system.file("shiny", "mewoc", "Stoppingrule_SK_single_agent.R", package = "MEWOC")
+  skip_if_not(nzchar(app_file))
+  src <- readLines(app_file, warn = FALSE)
+  expect_true(any(grepl('numericInput("seed", guide_input_label("Seed value", "seed"), value = 988', src, fixed = TRUE)))
+  expect_true(any(grepl('updateNumericInput(session, "seed", value = 988)', src, fixed = TRUE)))
+  expect_false(any(grepl('h4("Notes")', src, fixed = TRUE)))
+  expect_false(any(grepl("notes_output_", src, fixed = TRUE)))
+  expect_false(any(grepl('radioButtons("flexible_dose_range"', src, fixed = TRUE)))
+  expect_false(any(grepl('conduct_flexible_dose_range', src, fixed = TRUE)))
+})
+
+test_that("help pop-ups show formulas and cover the former Notes topics", {
+  expect_null(guide_input_explanations$flexible_dose_range)
+  for (key in names(guide_input_formulas)) expect_false(is.null(guide_input_explanations[[key]]))
+  for (key in names(guide_group_formulas)) expect_false(is.null(guide_group_explanations[[key]]))
+  html <- as.character(guide_input_help_modal("deltastop"))
+  expect_match(html, "Pr{ Pr(DLT | X = X<sub>min</sub>) &gt; &theta; | D<sub>n</sub> }", fixed = TRUE)
+  expect_match(html, "} &gt; &Delta;", fixed = TRUE)
+  expect_false(grepl("&ge; &Delta;", html, fixed = TRUE))
+  expect_match(as.character(guide_group_help_modal("prior_inputs")), "BOBYQA optimization algorithm", fixed = TRUE)
+  expect_match(as.character(guide_input_help_modal("feasibility_rule")), "P&#770;<sub>DLT</sub> &lt; &theta;", fixed = TRUE)
+  expect_match(as.character(guide_group_help_modal("conduct_data_inputs")), "Review the entered data, then tick the check box to proceed.", fixed = TRUE)
+  expect_false(grepl("Incomplete cohort data", as.character(guide_group_help_modal("conduct_data_inputs")), fixed = TRUE))
+  expect_match(as.character(guide_group_help_modal("trial_documents_inputs")), "STOP TRIAL: &Delta; safety stop", fixed = TRUE)
+  expect_false(grepl("approved protocol", guide_input_explanation_text("dose_and_level_inputs"), fixed = TRUE))
+  for (key in c("phase1_design_download", "conduct_workbook_download")) expect_false(identical(guide_input_title(key), key))
+  expect_false(grepl("This explains the", as.character(guide_input_help_modal("theta")), fixed = TRUE))
+  expect_false(grepl("This explains the", as.character(guide_group_help_modal("prior_inputs")), fixed = TRUE))
+})
+
+test_that("app has no hyperparameter recalibration method choice", {
+  app_file <- system.file("shiny", "mewoc", "Stoppingrule_SK_single_agent.R", package = "MEWOC")
+  skip_if_not(nzchar(app_file))
+  src <- readLines(app_file, warn = FALSE)
+  expect_false(any(grepl("one_drug_prior_search_method", src, fixed = TRUE)))
+  expect_false(any(grepl("Grid Search", src, fixed = TRUE)))
+  expect_null(guide_input_explanations$one_drug_prior_search_method)
+})
+
+test_that("Help tab has About, App Workflow and Design & Conduct with the agreed content", {
+  html <- as.character(help_page_ui())
+  for (tab in c("About", "App Workflow", "Design &amp; Conduct")) expect_match(html, paste0(">", tab, "<"), fixed = TRUE)
+  expect_true(regexpr(">About<", html, fixed = TRUE) < regexpr(">App Workflow<", html, fixed = TRUE))
+  expect_match(html, "https://doi.org/10.5281/zenodo.23254550", fixed = TRUE)
+  expect_match(html, "https://cshsbiostats.github.io/MEWOC_Shiny_App/", fixed = TRUE)
+  expect_match(html, "BOBYQA", fixed = TRUE)
+  expect_false(grepl("optimal grid search", html, fixed = TRUE))
+  expect_false(grepl("Manual User Guide", html, fixed = TRUE))
+  expect_match(html, "Stop when&nbsp; Pr{ Pr(DLT | X = X<sub>min</sub>) &gt; &theta; | D<sub>n</sub> } &gt; &Delta;", fixed = TRUE)
+  expect_equal(lengths(regmatches(html, gregexpr("Stop when&nbsp; Pr{", html, fixed = TRUE))), 1L)   # each formula once
+  expect_false(grepl("rjags", html, fixed = TRUE))   # no package names listed (user, 29 Oct 2026)
+  workflow <- as.character(help_workflow_ui())
+  dc <- as.character(help_design_conduct_ui())
+  expect_false(grepl("help-snum", dc, fixed = TRUE))   # no section number badges
+  expect_false(grepl("Each formula is shown once", dc, fixed = TRUE))
+  expect_equal(lengths(regmatches(dc, gregexpr("class='help-step-num'", dc, fixed = TRUE))), 5L)   # steps 1-5 kept
+  expect_false(grepl("step 3", dc, fixed = TRUE))
+  expect_false(grepl("Before any dosing decision", workflow, fixed = TRUE))
+  expect_false(grepl("Work through the tabs", workflow, fixed = TRUE))
+  expect_false(grepl("<h3>Workflow at a glance", workflow, fixed = TRUE))   # image is not inside a card
+  expect_match(as.character(help_about_ui()), "Its outputs support, but do not replace, review by the study statistician and clinical team as specified in the protocol.", fixed = TRUE)
+})
