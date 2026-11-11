@@ -1,3 +1,20 @@
+# MEWOC 0.1.1.9000 (development)
+
+* Provide ten scripted workflow functions and the Shiny launcher. Supporting
+  engines are internal and shared with Shiny and its background workers.
+* Store the dose design and seed in reusable prior and simulation objects.
+  Preserve equally spaced discrete model positions and full numeric precision.
+* Add decision trees, Word protocol drafts, empty conduct workbooks, next-dose
+  recommendations, and Word/HTML final MTD reports.
+* Explain tree depth limits with warnings and max_steps/plotted_steps. The test
+  examples show four levels with twelve patients in cohorts of three.
+* Apply Shiny's final-report rule in both interfaces: recheck safety only if
+  no trial stop is recorded. Efficiency stops proceed to final estimation;
+  recorded safety stops yield no MTD.
+* Install officer and flextable as required dependencies. Simplify messages,
+  help pages and examples; remove unused report scaffolding and stale version text.
+* Display two decimal places and use mathematical notation for tree symbols.
+
 # MEWOC 0.1.0
 
 * Finalize package authors as Shaowli Kabir, Xuyan Fan and Mourad Tighiouart,

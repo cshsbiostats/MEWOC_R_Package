@@ -1,107 +1,153 @@
 # MEWOC
 
-MEWOC implements the **Modified Escalation with Overdose Control** design for
-single-agent phase I dose-finding trials. Clinicians give prior probabilities that
-the maximum tolerated dose (MTD) lies below the minimum or above the maximum trial
-dose; MEWOC calibrates the prior, simulates the operating characteristics of the
-design for discrete dose levels or a continuous dose range, and supports the
-conduct of the trial cohort by cohort. An interactive Shiny application covers the
-whole workflow.
+MEWOC implements modified escalation with overdose control for single-agent
+phase I trials. A guided Shiny application and ten scripted workflow functions
+support prior calibration, discrete- or continuous-dose simulation, decision
+trees, protocol drafts, trial conduct, and final reporting.
 
-A web version of the app is available at
-<https://cshsbiostats.github.io/MEWOC_Shiny_App/> (no installation needed).
+This repository contains development version **0.1.1.9000**. Its simplified
+scripted API differs from version 0.1.0; see [NEWS.md](NEWS.md) and the examples
+below. This development version is separate from the earlier CRAN submission.
+
+Project website: <https://cshsbiostats.github.io/MEWOC_Shiny_App/>.
+
+## Shared calculation helpers
+
+Shiny, scripted functions and background workers use the same helpers in `R/`.
+After editing a helper, reload or reinstall MEWOC and restart Shiny. Both
+interfaces then use the updated logic. Display rounding preserves stored values.
 
 ## Installation
 
-MEWOC uses [JAGS](https://mcmc-jags.sourceforge.io/) for posterior computation,
-through the `rjags` package. Install JAGS (version 4 or later) first, then MEWOC:
+Install [JAGS](https://mcmc-jags.sourceforge.io/) version 4 or later first.
+MEWOC requires R 4.1.0 or later. Download or clone this repository and run the
+following from the package root (the directory containing `DESCRIPTION`):
 
 ```r
-install.packages("MEWOC")
+install.packages("remotes")  # once, if needed
+remotes::install_local(".", dependencies = TRUE, build_vignettes = TRUE)
+library(MEWOC)
 ```
 
-## Shiny app
+`officer` and `flextable` are required dependencies and install with MEWOC in a
+normal repository installation. Shiny also uses `future`, `promises` and `readxl`.
+`pkgload` supports background workers launched from source development.
+Building the HTML vignettes also requires Pandoc. Use `build_vignettes = FALSE`
+if you only need to install and run the package.
+
+## Shiny application
 
 ```r
 library(MEWOC)
 run_mewoc_app()
 ```
 
-The app needs the suggested packages `future`, `promises` and `readxl`.
-Its helpers are loaded privately. Background workers start when the app starts,
-and the previous future plan is restored when it exits.
+The browser interface guides users through Trial Setup, Trial Design, Trial
+Documents and Trial Conduct. It provides dose-specific inputs, contextual help,
+prior plots, simulation summaries, decision trees, and document downloads.
+Routine analyses can be performed through the interface without writing
+analysis code. The scripted functions below support saved objects, automation
+and reproducible analyses using the same calculation helpers.
 
-## Example
+The app uses the suggested packages `future`, `promises` and `readxl`. The
+installation command above requests suggested dependencies too. If they are
+missing from an existing installation, install them before launching Shiny:
+
+```r
+install.packages(c("future", "promises", "readxl"))
+```
+
+## Public functions
+
+| Function | Purpose |
+| --- | --- |
+| `run_mewoc_grid_discrete()` | Calibrate a discrete prior and store its design/seed |
+| `run_mewoc_grid_cont()` | Calibrate a continuous prior and store its design/seed |
+| `build_prior_plot()` | Plot the stored prior using clinical dose labels |
+| `run_trial_sim_discrete()` | Simulate and summarize discrete trials |
+| `run_trial_sim_continuous()` | Simulate and summarize continuous trials |
+| `Decision_tree()` | Enumerate decisions from the starting design |
+| `Build_protocol_draft()` | Write an app-format Word protocol draft |
+| `Trial_conduct_template()` | Write prefilled settings with empty patient rows |
+| `Run_trial_conduct()` | Evaluate entered patients and recommend the next dose |
+| `Final_mtd_report()` | Write Word and/or HTML final reports |
+| `run_mewoc_app()` | Launch Shiny |
+
+See `help(package = "MEWOC")` for detailed help and examples, and `?mewoc_results`
+for print, summary and plot methods. Both vignettes cover the complete workflow.
+
+## Scripted example
 
 ```r
 library(MEWOC)
 
-# Calibrate the prior to P(MTD < minimum dose) = 0.1 and P(MTD > maximum dose) = 0.2
-prior <- run_mewoc_grid_search(theta = 0.33, p0 = 0.1, p1 = 0.2, condition = 2, seed = 1)
-build_prior_plot(prior, num_doses = 4, seed_value = 1)
-
-# Simulate 100 trials with four dose levels
-inputs <- list(
-  M = 100, NN = 30, cohort = 3, dose_type = "Discrete",
-  num_doses = 4, startdose = 1, doseprobs = c(0.05, 0.15, 0.33, 0.50),
-  actual_dose_levels = c(10, 20, 30, 40), dose_unit = "mg",
-  theta = 0.33, deltastop = 0.85, lower_f_bound = 0.25, increment = 0.05,
-  alpha_increment_cutoff = 0.33, burn = 1000, mm = 1500, seed = 988,
-  trial_mode = "Standard EWOC", max_accel_dose_level = NA,
-  stopping_rule_selected = FALSE, num_patients_restrict = NA)
-sims <- run_trial_simulations_background(inputs, prior, ncores = 2)
-summarize_trial_simulation_results(sims, inputs)$combined_table
+prior <- run_mewoc_grid_discrete(.30, .10, .10, num_doses = 3,
+  dose_values = c(10, 25, 60), dose_unit = "mg", seed = 988)
+build_prior_plot(prior)
+sim <- run_trial_sim_discrete(prior, 1000, 30, 3, c(.05, .20, .50), ncores = 1)
+sim
+tree <- Decision_tree(sim, steps = 4)
+Build_protocol_draft(prior, sim, tree, "outputs/protocol.docx")
+Trial_conduct_template(sim, "outputs/trial.xlsx")
 ```
 
-See `vignette("single-agent-workflows", package = "MEWOC")` for continuous doses
-and Trial Conduct.
+Fill and save the workbook's Data Input sheet in Excel. After each cohort:
 
-## Design rules
+```r
+conduct <- Run_trial_conduct("outputs/trial.xlsx")
+print(conduct)
+```
 
-The simulations, the dose escalation tree, Trial Conduct and the generated design
-documents use the same rules:
+At the end of the trial, resolve pending outcomes and use the last conduct result:
 
-- **Dose recommendation:** the model-based dose is the posterior MTD alpha-quantile.
-  Discrete designs round it to the nearest dose level; the rounded dose can have
-  a posterior overdose probability greater than alpha. Alpha starts
-  at `lower_f_bound` and rises by `increment`, capped at exactly 0.5, after each cohort while
-  the observed DLT rate is below the target. No untried discrete level is skipped;
-  continuous doses rise by at most the maximum dose increment.
-- **Safety stop:** stop, with no MTD, when the posterior probability that the DLT
-  probability at the minimum dose exceeds the target is greater than `deltastop`.
-- **Efficiency stop (optional):** stop when `num_patients_restrict` evaluable
-  patients have already been treated at the dose recommended for the next cohort.
-- **Accelerated EWOC (discrete doses, optional):** one patient per dose level,
-  one level at a time, until the first DLT or the maximum dose level for
-  acceleration.
+```r
+final <- Final_mtd_report(conduct, c("outputs/final.docx", "outputs/final.html"))
+```
 
-The API supports one MCMC chain (`chains = 1`). Calibration, prior plots and
-posterior fitting use the same beta prior for the maximum-dose toxicity
-probability, truncated to `[0.001, 0.999]`. Recalibrate existing prior settings
-before using this candidate; calibration and plot results can differ from the
-earlier untruncated implementation even with the same seed.
+For continuous doses:
 
-Simulation counts and MCMC controls must be finite integers in their documented
-ranges. Standardized dose grids must be strictly increasing within `[0,1]`;
-invalid settings are rejected before fitting. A final cohort may be smaller
-than the requested cohort size. Explicit `ncores` requests respect
-`options(mewoc.max_trial_workers = ...)` and the two-core check limit. During
-checks the app uses a single simulation worker inside its background coordinator.
+```r
+prior <- run_mewoc_grid_cont(.30, .10, .10, 10, 100, "mg", seed = 988)
+build_prior_plot(prior)
+sim <- run_trial_sim_continuous(prior, 1000, 30, 3,
+  true_mtd = 60, true_p_min = .05, ncores = 1)
+# The tree, protocol, workbook, conduct and report functions are the same.
+```
 
-## Citation
+The prior constructor stores the workflow seed; later functions inherit it.
+Use `saveRDS()`/`readRDS()` to retain complete objects. Elicited p0/p1 concern
+the MTD lying outside the dose range, not scenario toxicity probabilities.
+Discrete clinical doses retain equally spaced model positions. The posterior
+MTD alpha-quantile is mapped to a permitted dose under the no-skipping rule;
+the mapped level can have overdose probability above alpha. Continuous designs
+start at the minimum and limit escalation by a percentage of the dose range.
 
-Kabir S, Fan X, Tighiouart M (2026). *MEWOC: Modified Escalation with Overdose
-Control for Single-Agent Phase I Trials*. R package version 0.1.0.
-<https://cshsbiostats.github.io/MEWOC_Shiny_App/>
+Matching numerical results requires matching inputs, seeds, MCMC settings and
+R/JAGS versions. API workbooks store their own configuration; use Shiny workbooks
+through Shiny. Existing output files are protected unless `overwrite = TRUE`.
+Function-help examples use small synthetic trials. Assess a study design with
+appropriate MCMC settings and many more simulated trials.
+Both final-report interfaces preserve Shiny's rule: a recorded safety stop means
+no MTD; an efficiency stop proceeds to final estimation. The final safety recheck
+is applied only if there is no recorded trial stop.
 
-Use `citation("MEWOC")` for the package citation and BibTeX entry.
+## Development and checks
 
-Related presentation:
+The GitHub Actions workflow checks R-release and R-devel on Ubuntu, installing
+JAGS before the R dependencies. It omits the PDF manual; a full local check
+remains part of release preparation. Workflow results become available after
+the repository is pushed and the jobs run.
 
-Kabir S, Tighiouart M (2026). Modified EWOC (MEWOC): A Shiny Application for
-Single-Agent Phase I Dose-Finding Trials. Joint Statistical Meeting 2026, Boston,
-MA. <https://doi.org/10.5281/zenodo.23254550>
+From a local checkout with development dependencies installed:
 
-## License
+```r
+devtools::load_all(".", export_all = FALSE)
+devtools::test(".")
+devtools::check(".")
+```
 
-GPL-3
+The package includes detailed help and two workflow vignettes. Build archives,
+check directories and local session files are excluded from version control.
+The workflow follows the [r-lib/actions examples](https://github.com/r-lib/actions/tree/v2/examples).
+
+Use `citation("MEWOC")` for the current citation and BibTeX entry. License: GPL-3.
